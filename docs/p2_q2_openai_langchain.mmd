@@ -1,0 +1,24 @@
+flowchart TB
+    C(["Cliente"]) -- "POST /translate<br/>ou /translate/stream<br/>{text: inglês}" --> V
+    subgraph API["FastAPI · uvicorn (async)"]
+        direction LR
+        V["Validação Pydantic"] --> R["Rotas /translate<br/>/translate/stream"]
+        E["Exception handlers<br/>429 · 502 · 503 · 504"]
+    end
+    subgraph LC["LangChain · cadeia LCEL"]
+        direction LR
+        P["ChatPromptTemplate<br/>system: tradutor EN→FR<br/>human: {text}"] --> L["ChatOpenAI<br/>temperature=0 · timeout · max_retries"]
+        L --> O["StrOutputParser"]
+        CA[("InMemoryCache")] <-.-> L
+    end
+    R -- "await chain.ainvoke()<br/>chain.astream()" --> P
+    L == "HTTPS · OPENAI_API_KEY" ==> OA[["OpenAI API<br/>gpt-4o-mini"]]
+    OA == "tradução (tokens)" ==> L
+    O -- "texto em francês" --> R
+    L -. "erros: RateLimit, Timeout, Auth" .-> E
+    R -- "200 JSON {translated_text, model, elapsed_ms}" --> C
+    classDef ext fill:#eef2ff,stroke:#6366f1,color:#111;
+    classDef api fill:#ecfdf5,stroke:#10b981,color:#111;
+    classDef lc fill:#f0f9ff,stroke:#0ea5e9,color:#111;
+    classDef cloud fill:#fdf2f8,stroke:#db2777,color:#111;
+    class C ext; class V,R,E api; class P,L,O,CA lc; class OA cloud;

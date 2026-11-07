@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Variáveis de ambiente (NUNCA versionar chaves de API)
+.env
+
+# IDEs / SO
+.vscode/
+.idea/
+.DS_Store
