@@ -80,6 +80,17 @@ def test_openai_errors_are_mapped_to_http_status(exc, expected_status):
     assert client.post("/translate", json={"text": "Hello"}).status_code == expected_status
 
 
+def test_insufficient_quota_is_not_reported_as_retryable():
+    # Corpo real devolvido pela OpenAI para uma conta sem créditos.
+    body = {"message": "You have no credits remaining.", "type": "insufficient_quota", "param": None,
+            "code": "credit_balance_exhausted"}
+    exc = openai.RateLimitError("quota", response=httpx.Response(429, request=_REQ), body=body)
+    client = use_chain(_RaisingChain(exc))
+    response = client.post("/translate", json={"text": "Hello"})
+    assert response.status_code == 503
+    assert "sem créditos" in response.json()["detail"]
+
+
 def test_missing_api_key_returns_503(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr("app.main.get_settings", lambda: Settings(_env_file=None))

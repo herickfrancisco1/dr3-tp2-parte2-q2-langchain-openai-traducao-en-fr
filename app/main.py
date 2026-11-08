@@ -57,7 +57,12 @@ def get_chain(request: Request) -> Runnable:
 # --- Tradução de erros da OpenAI em respostas HTTP adequadas -----------------------------------
 @app.exception_handler(openai.RateLimitError)
 async def rate_limit_handler(_: Request, exc: openai.RateLimitError) -> JSONResponse:
-    return JSONResponse(status_code=429, content={"detail": "Limite de uso da OpenAI atingido. Tente novamente."})
+    # A OpenAI usa o mesmo HTTP 429 para "muitas requisições" e "conta sem créditos";
+    # só o primeiro caso se resolve tentando de novo.
+    if exc.type == "insufficient_quota" or exc.code in {"insufficient_quota", "credit_balance_exhausted"}:
+        logger.error("Conta OpenAI sem créditos (insufficient_quota)")
+        return JSONResponse(status_code=503, content={"detail": "Conta da OpenAI sem créditos. Adicione créditos para usar a API."})
+    return JSONResponse(status_code=429, content={"detail": "Limite de requisições da OpenAI atingido. Tente novamente em instantes."})
 
 
 @app.exception_handler(openai.APITimeoutError)

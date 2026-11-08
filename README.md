@@ -38,7 +38,7 @@ flowchart TB
 | `InMemoryCache` do LangChain | Textos repetidos são respondidos do cache (~ms), sem nova chamada nem custo. |
 | `POST /translate/stream` | Streaming: o cliente recebe os primeiros tokens antes da tradução terminar. |
 | `timeout` + `max_retries` (backoff) | Falhas transitórias/429 são re‑tentadas; requisições presas não ficam pendentes. |
-| Exception handlers | `429` (limite de uso), `504` (timeout), `502` (autenticação/erro do provedor), `503` (sem chave). |
+| Exception handlers | `429` (limite de requisições: vale tentar de novo), `503` (sem chave ou **conta sem créditos**: tentar de novo não resolve), `504` (timeout), `502` (autenticação/erro do provedor). |
 | Prompt de sistema | Pede **só** a tradução e instrui o modelo a não obedecer instruções contidas no texto (mitiga prompt injection). |
 
 ## Estrutura
@@ -109,6 +109,15 @@ Sem chave configurada, a API sobe mas indica o problema (comportamento real veri
 GET  /health     -> {"status":"ok","model":"gpt-4o-mini","api_key_configured":false}
 POST /translate  -> 503 {"detail":"Serviço indisponível: OPENAI_API_KEY ausente."}
 ```
+
+Com uma chave válida mas **conta sem créditos** (verificado com a API real da OpenAI):
+
+```text
+POST /translate  -> 503 {"detail":"Conta da OpenAI sem créditos. Adicione créditos para usar a API."}
+```
+
+A OpenAI usa o mesmo HTTP 429 para "muitas requisições" e "sem créditos"
+(`type: insufficient_quota`, `code: credit_balance_exhausted`); a API distingue os dois casos.
 
 ### Testes
 
