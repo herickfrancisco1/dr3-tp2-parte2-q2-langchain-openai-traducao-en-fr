@@ -84,7 +84,7 @@ Swagger: http://127.0.0.1:8000/docs
 curl -X POST http://127.0.0.1:8000/translate -H "Content-Type: application/json" -d '{"text": "Good morning! How are you today?"}'
 ```
 
-Formato da resposta (**exemplo ilustrativo**: não foi executado sem uma chave; o texto e o tempo variam):
+Formato da resposta (**exemplo ilustrativo**: a tradução real não foi executada porque a conta usada estava sem créditos; o texto e o tempo variam):
 
 ```json
 {
