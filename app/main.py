@@ -48,6 +48,7 @@ app = FastAPI(
 
 
 def get_chain(request: Request) -> Runnable:
+    """Dependência do FastAPI: entrega a cadeia criada no startup; sem chave de API responde HTTP 503."""
     chain = getattr(request.app.state, "chain", None)
     if chain is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Serviço indisponível: OPENAI_API_KEY ausente.")
@@ -59,6 +60,7 @@ def get_chain(request: Request) -> Runnable:
 async def rate_limit_handler(_: Request, exc: openai.RateLimitError) -> JSONResponse:
     # A OpenAI usa o mesmo HTTP 429 para "muitas requisições" e "conta sem créditos";
     # só o primeiro caso se resolve tentando de novo.
+    """Trata o HTTP 429 da OpenAI: conta sem créditos vira 503; excesso de requisições continua 429."""
     if exc.type == "insufficient_quota" or exc.code in {"insufficient_quota", "credit_balance_exhausted"}:
         logger.error("Conta OpenAI sem créditos (insufficient_quota)")
         return JSONResponse(
@@ -71,17 +73,20 @@ async def rate_limit_handler(_: Request, exc: openai.RateLimitError) -> JSONResp
 
 @app.exception_handler(openai.APITimeoutError)
 async def timeout_handler(_: Request, exc: openai.APITimeoutError) -> JSONResponse:
+    """A OpenAI demorou mais que o timeout configurado: responde HTTP 504."""
     return JSONResponse(status_code=504, content={"detail": "A OpenAI não respondeu a tempo."})
 
 
 @app.exception_handler(openai.AuthenticationError)
 async def auth_handler(_: Request, exc: openai.AuthenticationError) -> JSONResponse:
+    """Chave inválida ou revogada: responde HTTP 502 (o problema é o nosso acesso ao provedor, não o cliente)."""
     logger.error("Falha de autenticação na OpenAI: verifique OPENAI_API_KEY")
     return JSONResponse(status_code=502, content={"detail": "Falha de autenticação com o provedor de LLM."})
 
 
 @app.exception_handler(openai.APIError)
 async def api_error_handler(_: Request, exc: openai.APIError) -> JSONResponse:
+    """Qualquer outro erro da API da OpenAI: responde HTTP 502."""
     logger.error("Erro da API OpenAI: %s", exc)
     return JSONResponse(status_code=502, content={"detail": "Erro no provedor de LLM."})
 
@@ -89,6 +94,7 @@ async def api_error_handler(_: Request, exc: openai.APIError) -> JSONResponse:
 # --- Rotas ----------------------------------------------------------------------------------------
 @app.get("/health", tags=["infra"])
 def health(request: Request) -> dict:
+    """Rota de verificação (GET /health): modelo configurado e se a chave da OpenAI está presente."""
     return {
         "status": "ok",
         "model": request.app.state.model_name,
@@ -104,6 +110,7 @@ async def translate(
     request: Request,
     chain: Runnable = Depends(get_chain),
 ) -> TranslationResponse:
+    """Rota POST /translate: chama a cadeia com `await` (sem bloquear o servidor) e devolve a tradução em JSON."""
     start = time.perf_counter()
     translated = await chain.ainvoke({"text": payload.text})
     elapsed_ms = (time.perf_counter() - start) * 1000
@@ -129,6 +136,7 @@ async def translate_stream(payload: TranslationRequest, chain: Runnable = Depend
         first_chunk = ""
 
     async def body() -> AsyncIterator[str]:
+        """Envia ao cliente o primeiro pedaço já lido e depois o restante, conforme a OpenAI vai produzindo."""
         yield first_chunk
         async for chunk in stream:
             yield chunk

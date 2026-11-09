@@ -4,17 +4,22 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class TranslationRequest(BaseModel):
+    """Corpo da requisição POST /translate: o texto em inglês a ser traduzido."""
+
     text: str = Field(..., min_length=1, max_length=10_000, examples=["Hello! How are you today?"])
 
     @field_validator("text")
     @classmethod
     def text_must_not_be_blank(cls, value: str) -> str:
+        """Rejeita textos só com espaços (o min_length=1 sozinho aceitaria '   '). O erro vira HTTP 422."""
         if not value.strip():
             raise ValueError("o texto não pode conter apenas espaços")
         return value
 
 
 class TranslationResponse(BaseModel):
+    """Corpo da resposta de /translate: idiomas, texto original, tradução, modelo usado e tempo gasto."""
+
     source_language: str = "en"
     target_language: str = "fr"
     original_text: str

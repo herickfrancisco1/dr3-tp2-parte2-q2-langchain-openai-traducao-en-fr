@@ -23,6 +23,7 @@ TRANSLATION_PROMPT = ChatPromptTemplate.from_messages(
 
 
 def build_llm(settings: Settings) -> BaseChatModel:
+    """Cria o cliente ChatOpenAI (temperature=0, timeout e re-tentativas). Sem OPENAI_API_KEY, lança RuntimeError."""
     from langchain_openai import ChatOpenAI
 
     if settings.openai_api_key is None:
@@ -37,4 +38,5 @@ def build_llm(settings: Settings) -> BaseChatModel:
 
 
 def build_translation_chain(llm: BaseChatModel) -> Runnable:
+    """Monta a cadeia LCEL: prompt de tradução -> ChatOpenAI -> parser de texto."""
     return TRANSLATION_PROMPT | llm | StrOutputParser()

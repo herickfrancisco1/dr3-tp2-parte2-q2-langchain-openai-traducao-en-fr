@@ -7,6 +7,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Configurações da aplicação. Cada campo pode ser sobrescrito por uma variável de ambiente com prefixo APP_ (ex.:
+    APP_DEVICE=0) ou pelo arquivo .env.
+    """
+
     model_config = SettingsConfigDict(env_file=".env", env_prefix="APP_", extra="ignore")
 
     # Lida de OPENAI_API_KEY (sem o prefixo APP_). Nunca versione a chave: use o arquivo .env.
@@ -19,4 +23,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Devolve as configurações. O @lru_cache faz o .env e as variáveis de ambiente serem lidos uma única vez."""
     return Settings()
