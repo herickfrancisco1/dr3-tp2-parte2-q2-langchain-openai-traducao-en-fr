@@ -63,6 +63,10 @@ class _RaisingChain:
     async def ainvoke(self, *_args, **_kwargs):
         raise self.exc
 
+    async def astream(self, *_args, **_kwargs):
+        raise self.exc
+        yield  # torna o método um gerador assíncrono
+
 
 _REQ = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
 
@@ -80,10 +84,21 @@ def test_openai_errors_are_mapped_to_http_status(exc, expected_status):
     assert client.post("/translate", json={"text": "Hello"}).status_code == expected_status
 
 
+def test_stream_returns_error_status_instead_of_empty_200():
+    # Erros da OpenAI no streaming devem virar o status HTTP correto (antes vinha 200 com corpo vazio).
+    exc = openai.RateLimitError("rate", response=httpx.Response(429, request=_REQ), body=None)
+    client = use_chain(_RaisingChain(exc))
+    assert client.post("/translate/stream", json={"text": "Hello"}).status_code == 429
+
+
 def test_insufficient_quota_is_not_reported_as_retryable():
     # Corpo real devolvido pela OpenAI para uma conta sem créditos.
-    body = {"message": "You have no credits remaining.", "type": "insufficient_quota", "param": None,
-            "code": "credit_balance_exhausted"}
+    body = {
+        "message": "You have no credits remaining.",
+        "type": "insufficient_quota",
+        "param": None,
+        "code": "credit_balance_exhausted",
+    }
     exc = openai.RateLimitError("quota", response=httpx.Response(429, request=_REQ), body=body)
     client = use_chain(_RaisingChain(exc))
     response = client.post("/translate", json={"text": "Hello"})

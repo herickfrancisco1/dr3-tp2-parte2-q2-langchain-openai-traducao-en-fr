@@ -1,3 +1,5 @@
+"""Modelos Pydantic de entrada e saída da API (validação + documentação automática no /docs)."""
+
 from pydantic import BaseModel, Field, field_validator
 
 

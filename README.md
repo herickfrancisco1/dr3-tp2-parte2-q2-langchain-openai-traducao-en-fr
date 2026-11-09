@@ -36,7 +36,7 @@ flowchart TB
 | Cliente/cadeia criados **uma vez** no `lifespan` | Reaproveita conexões HTTP (keep‑alive), sem recriar o cliente a cada requisição. |
 | Modelo pequeno (`gpt-4o-mini`) + `temperature=0` | Respostas mais rápidas e determinísticas. |
 | `InMemoryCache` do LangChain | Textos repetidos são respondidos do cache (~ms), sem nova chamada nem custo. |
-| `POST /translate/stream` | Streaming: o cliente recebe os primeiros tokens antes da tradução terminar. |
+| `POST /translate/stream` | Streaming: o cliente recebe os primeiros tokens antes da tradução terminar. O primeiro pedaço é lido antes de responder, então erros da OpenAI viram o status HTTP certo (e não um "200" vazio). |
 | `timeout` + `max_retries` (backoff) | Falhas transitórias/429 são re‑tentadas; requisições presas não ficam pendentes. |
 | Exception handlers | `429` (limite de requisições: vale tentar de novo), `503` (sem chave ou **conta sem créditos**: tentar de novo não resolve), `504` (timeout), `502` (autenticação/erro do provedor). |
 | Prompt de sistema | Pede **só** a tradução e instrui o modelo a não obedecer instruções contidas no texto (mitiga prompt injection). |
@@ -139,6 +139,14 @@ Com `OPENAI_API_KEY` definida, um teste extra faz uma tradução real (pago).
 | `APP_REQUEST_TIMEOUT_S` | `30` | Timeout por chamada (s) |
 | `APP_MAX_RETRIES` | `2` | Re‑tentativas com backoff |
 | `APP_ENABLE_CACHE` | `true` | Cache em memória de traduções repetidas |
+
+### Qualidade de código
+
+O projeto usa o [ruff](https://docs.astral.sh/ruff/) (configuração em `ruff.toml`) como linter e formatador:
+
+```bash
+pip install ruff && ruff check . && ruff format --check .
+```
 
 ## Referências
 

@@ -61,8 +61,12 @@ async def rate_limit_handler(_: Request, exc: openai.RateLimitError) -> JSONResp
     # só o primeiro caso se resolve tentando de novo.
     if exc.type == "insufficient_quota" or exc.code in {"insufficient_quota", "credit_balance_exhausted"}:
         logger.error("Conta OpenAI sem créditos (insufficient_quota)")
-        return JSONResponse(status_code=503, content={"detail": "Conta da OpenAI sem créditos. Adicione créditos para usar a API."})
-    return JSONResponse(status_code=429, content={"detail": "Limite de requisições da OpenAI atingido. Tente novamente em instantes."})
+        return JSONResponse(
+            status_code=503, content={"detail": "Conta da OpenAI sem créditos. Adicione créditos para usar a API."}
+        )
+    return JSONResponse(
+        status_code=429, content={"detail": "Limite de requisições da OpenAI atingido. Tente novamente em instantes."}
+    )
 
 
 @app.exception_handler(openai.APITimeoutError)
@@ -115,4 +119,18 @@ async def translate(
 @app.post("/translate/stream", tags=["tradução"])
 async def translate_stream(payload: TranslationRequest, chain: Runnable = Depends(get_chain)) -> StreamingResponse:
     """Devolve a tradução em streaming (texto puro): o cliente vê os primeiros tokens em ~centenas de ms."""
-    return StreamingResponse(chain.astream({"text": payload.text}), media_type="text/plain; charset=utf-8")
+    stream = chain.astream({"text": payload.text})
+    # O primeiro pedaço é lido ANTES de enviar a resposta: se a OpenAI falhar (sem créditos, 429, timeout),
+    # a exceção chega aos exception handlers e o cliente recebe o código de erro certo. Sem isso, o status
+    # 200 já teria sido enviado e o cliente receberia uma resposta vazia/cortada.
+    try:
+        first_chunk = await anext(stream)
+    except StopAsyncIteration:
+        first_chunk = ""
+
+    async def body() -> AsyncIterator[str]:
+        yield first_chunk
+        async for chunk in stream:
+            yield chunk
+
+    return StreamingResponse(body(), media_type="text/plain; charset=utf-8")

@@ -1,0 +1,13 @@
+# Configuração do linter/formatador (ruff): https://docs.astral.sh/ruff/
+line-length = 120
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[lint.isort]
+known-first-party = ["app"]
+
+[lint.flake8-bugbear]
+# Depends(...) em parâmetros é o padrão do FastAPI.
+extend-immutable-calls = ["fastapi.Depends"]
